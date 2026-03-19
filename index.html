@@ -1479,20 +1479,20 @@ renderToday();
     var skip=false;
 
     REF.onSnapshot(function(snap){
+      // 문서 존재 여부와 관계없이 연결됨 표시
+      var el=document.getElementById('syncStatus');
+      if(el){el.textContent='🟢 실시간 연결됨';el.style.color='#5a8a5a';}
       if(!snap.exists) return;
       if(skip){skip=false;return;}
       var d=snap.data();
       if(d&&d.json){
         try{
           localStorage.setItem('smile_v3',d.json);
-          // Firebase 데이터 받은 후 재계산 (3게임 제한 항상 유지)
           if(typeof recalcRanking==='function') recalcRanking();
           if(typeof renderModeBanner==='function') renderModeBanner();
           if(typeof renderToday==='function') renderToday();
           var mt=document.getElementById('members');
           if(mt&&mt.classList.contains('active')&&typeof renderMembers==='function') renderMembers();
-          var el=document.getElementById('syncStatus');
-          if(el){el.textContent='🟢 실시간 연결됨';el.style.color='#5a8a5a';}
         }catch(e){}
       }
     },function(){

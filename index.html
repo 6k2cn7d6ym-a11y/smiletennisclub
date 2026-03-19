@@ -27,7 +27,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .header-inner{display:flex;flex-direction:column;gap:12px;padding-bottom:14px}
 .header-top{display:flex;align-items:flex-start;justify-content:space-between}
 .club-name{font-size:2rem;font-weight:800;color:var(--text);letter-spacing:-1px;line-height:1}
-.club-name em{color:var(--accent);font-style:normal}
+.club-name em{color:var(--blue);font-style:normal}
 .today-date{font-size:0.8rem;color:var(--muted);margin-top:5px}
 .season-pill{background:var(--accent);color:#fff;font-size:0.72rem;font-weight:700;padding:6px 13px;border-radius:20px;cursor:pointer;border:none;font-family:inherit;margin-top:4px}
 .season-pill:active{opacity:0.75}
@@ -55,7 +55,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .input-inner select{border:none;outline:none;background:var(--bg);border-radius:9px;padding:8px 10px;font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;color:var(--text);cursor:pointer;border:1px solid var(--border)}
 
 /* BUTTONS */
-.btn-main{background:var(--accent);color:#fff;border:none;border-radius:11px;padding:10px 18px;font-family:'Noto Sans KR',sans-serif;font-size:0.86rem;font-weight:700;cursor:pointer;transition:opacity 0.15s;white-space:nowrap}
+.btn-main{background:var(--blue);color:#fff;border:none;border-radius:11px;padding:10px 18px;font-family:'Noto Sans KR',sans-serif;font-size:0.86rem;font-weight:700;cursor:pointer;transition:opacity 0.15s;white-space:nowrap}
 .btn-main:active{opacity:0.8}
 .btn-full{width:100%;padding:15px;border-radius:var(--radius);font-size:0.95rem;margin-top:10px;display:block;text-align:center}
 .btn-ghost{background:transparent;border:none;font-family:'Noto Sans KR',sans-serif;font-size:0.8rem;font-weight:500;cursor:pointer;padding:5px 10px;border-radius:8px}
@@ -149,7 +149,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .modal-btns{display:flex;gap:10px;margin-top:20px}
 .mbtn{flex:1;padding:14px;border:none;border-radius:var(--radius);font-family:'Noto Sans KR',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;transition:opacity 0.15s}
 .mbtn:active{opacity:0.8}
-.mbtn-ok{background:var(--accent);color:#fff}
+.mbtn-ok{background:var(--blue);color:#fff}
 .mbtn-cancel{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
 
 /* TOAST */
@@ -162,7 +162,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .score-inp:focus{border-color:var(--accent)}
 .score-inp.blue:focus{border-color:var(--blue)}
 .score-sep{font-size:1rem;font-weight:700;color:var(--muted)}
-.score-confirm{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 15px;font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.score-confirm{background:var(--blue);color:#fff;border:none;border-radius:10px;padding:11px 15px;font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap}
 .score-confirm:active{opacity:0.8}
 .score-display{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--bg);border-radius:10px}
 .score-num{font-size:1.5rem;font-weight:800}
@@ -193,7 +193,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div id="syncStatus" style="font-size:0.68rem;font-weight:600;color:var(--muted)">🔄 연결 중...</div>
           </div>
         </div>
-        <button class="season-pill" id="seasonLabel" onclick="openSeasonModal()">시즌 1 종료 →</button>
+        <div><!-- spacer --></div>
       </div>
       <div class="tabbar">
         <button class="tab active" onclick="showTab('today',this)">오늘 게임</button>
@@ -294,19 +294,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
 </div>
 
-<!-- SEASON MODAL -->
-<div class="modal-overlay" id="seasonModal" style="display:none" onclick="if(event.target===this)closeSeasonModal()">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">시즌 종료 🏆</div>
-    <div class="modal-sub" id="seasonModalSub"></div>
-    <div id="seasonModalBody"></div>
-    <div class="modal-btns">
-      <button class="mbtn mbtn-cancel" onclick="closeSeasonModal()">취소</button>
-      <button class="mbtn mbtn-ok" onclick="confirmSeason()">승격 / 강등 확정</button>
-    </div>
-  </div>
-</div>
 
 <div class="toast" id="toast"></div>
 
@@ -1189,7 +1176,7 @@ function renderMatchArea(){
               '<input type="number" id="s2_'+match.id+'" min="0" placeholder="B"'+
                 ' style="width:0;flex:1;min-width:0;border:2px solid #4a7fbf;border-radius:10px;padding:12px 4px;font-size:1.1rem;font-weight:700;text-align:center;background:#fff;color:#1a1714;outline:none;font-family:inherit;-webkit-appearance:none;">'+
               '<button onclick="submitScore(\''+dk+'\','+rIdx+','+dIdx+','+match.id+')"'+
-                ' style="flex-shrink:0;background:#d4622a;color:#fff;border:none;border-radius:10px;padding:12px 14px;font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;white-space:nowrap;">확인</button>'+
+                ' style="flex-shrink:0;background:#4a7fbf;color:#fff;border:none;border-radius:10px;padding:12px 14px;font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;white-space:nowrap;">확인</button>'+
             '</div>';
         }
         var isForfeit=false;
@@ -1273,8 +1260,8 @@ function rankRows(list,div){
     var rank=list.filter(function(x){return pts(x)>pts(m)}).length+1;
     var rankLabel=rank<=3?medals[rank-1]:rank;
     var rankCls=rank===1?'rn1':rank===2?'rn2':rank===3?'rn3':'rnx';
-    var rel=isA&&list.length>=4&&i>=list.length-4;
-    var pro=!isA&&i<4;
+    var rel=false;
+    var pro=false;
     var todayGames=countGamesPlayed(s,m.name,dk);
     var rankedToday=countRankedResults(s,m.name,dk,null);
     var gameTag=todayGames>0?'<span style="font-size:0.65rem;padding:1px 6px;border-radius:10px;background:rgba(74,127,191,0.1);color:var(--blue);margin-left:4px">오늘 '+todayGames+'경기</span>':'';
@@ -1299,52 +1286,9 @@ function renderRank(){
   var b=s.members.filter(m=>m.division==='B').sort((x,y)=>pts(y)-pts(x));
   document.getElementById('rankContent').innerHTML=
     '<div class="group"><div class="group-label">A조 랭킹 <span style="color:var(--accent)">('+a.length+'명)</span></div>'+
-    (a.length>=4?'<div class="alert-pill ap-rel">🔴 하위 4명은 시즌 종료 시 B조로 강등됩니다</div>':'')+
     '<div class="rank-card">'+rankRows(a,'A')+'</div></div>'+
     '<div class="group"><div class="group-label">B조 랭킹 <span style="color:var(--blue)">('+b.length+'명)</span></div>'+
-    (b.length>=4?'<div class="alert-pill ap-pro">🟢 상위 4명은 시즌 종료 시 A조로 승격됩니다</div>':'')+
     '<div class="rank-card">'+rankRows(b,'B')+'</div></div>';
-}
-
-// ── SEASON
-function openSeasonModal(){
-  const s=getState();
-  var a=s.members.filter(m=>m.division==='A').sort((x,y)=>pts(y)-pts(x));
-  var b=s.members.filter(m=>m.division==='B').sort((x,y)=>pts(y)-pts(x));
-  var down=a.length>=4?a.slice(-4):[];
-  var up=b.length>=4?b.slice(0,4):[];
-  document.getElementById('seasonModalSub').textContent='시즌 '+s.season+'을 종료합니다. A조 하위 4명 강등, B조 상위 4명 승격 후 모든 점수가 초기화됩니다.';
-  var html='';
-  if(down.length){
-    html+='<div class="modal-sec"><div class="modal-sec-label" style="color:var(--red)">🔴 A조 → B조 강등</div>';
-    down.forEach(function(m){html+='<div class="mprow mprow-down"><div class="dbadge db-a">A</div><span style="flex:1;font-weight:500">'+m.name+'</span><span style="color:var(--red);font-size:0.82rem">'+pts(m)+'점</span><span style="color:var(--muted);font-size:0.75rem;margin-left:6px">→ B조</span></div>'});
-    html+='</div>';
-  }
-  if(up.length){
-    html+='<div class="modal-sec"><div class="modal-sec-label" style="color:var(--green)">🟢 B조 → A조 승격</div>';
-    up.forEach(function(m){html+='<div class="mprow mprow-up"><div class="dbadge db-b">B</div><span style="flex:1;font-weight:500">'+m.name+'</span><span style="color:var(--green);font-size:0.82rem">'+pts(m)+'점</span><span style="color:var(--muted);font-size:0.75rem;margin-left:6px">→ A조</span></div>'});
-    html+='</div>';
-  }
-  if(!down.length&&!up.length) html='<div class="info-center">조별 인원이 부족하여 승강이 없습니다</div>';
-  document.getElementById('seasonModalBody').innerHTML=html;
-  document.getElementById('seasonModal').style.display='flex';
-}
-function closeSeasonModal(){document.getElementById('seasonModal').style.display='none'}
-function confirmSeason(){
-  const s=getState();
-  var a=s.members.filter(m=>m.division==='A').sort((x,y)=>pts(y)-pts(x));
-  var b=s.members.filter(m=>m.division==='B').sort((x,y)=>pts(y)-pts(x));
-  var dn=a.length>=4?a.slice(-4).map(m=>m.name):[];
-  var up=b.length>=4?b.slice(0,4).map(m=>m.name):[];
-  s.members.forEach(function(m){
-    if(dn.includes(m.name)) m.division='B';
-    if(up.includes(m.name)) m.division='A';
-    m.wins=0;m.draws=0;m.losses=0;m.attendance=0;
-  });
-  s.history=[];s.today=[];s.attended=[];s.season=(s.season||1)+1;
-  save(s);closeSeasonModal();
-  document.getElementById('seasonLabel').textContent='시즌 '+s.season+' 종료 →';
-  renderToday();showToast('시즌 '+s.season+' 시작! 승강 처리 완료');
 }
 
 // ── DAY END
@@ -1454,7 +1398,7 @@ function resetRanking(){
       s.members.forEach(function(m){m.wins=0;m.draws=0;m.losses=0;m.attendance=0;});
       s.history=[];s.today=[];s.attended=[];s.season=1;
       save(s);
-      document.getElementById('seasonLabel').textContent='시즌 1 종료 →';
+      
       renderModeBanner();renderMembers();renderToday();renderRank();
       showToast('랭킹 초기화 완료!');
     }
@@ -1471,7 +1415,7 @@ function resetAll(){
       // 상태 완전 초기화 후 재렌더
       const fresh={members:[],history:[],today:[],attended:[],season:1};
       localStorage.setItem(KEY, JSON.stringify(fresh));
-      document.getElementById('seasonLabel').textContent='시즌 1 종료 →';
+      
       renderModeBanner();
       renderMembers();
       renderToday();
@@ -1502,7 +1446,6 @@ function showToast(msg){
   // Firebase 업로드 없이 로컬에만 저장 (Firebase에서 곧 최신 데이터 받아옴)
   localStorage.setItem(KEY, JSON.stringify(s));
 })();
-document.getElementById('seasonLabel').textContent='시즌 '+getState().season+' 종료 →';
 recalcRanking();
 renderModeBanner();
 renderToday();

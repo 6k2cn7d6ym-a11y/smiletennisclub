@@ -1024,6 +1024,10 @@ function applyResult(s,match,result,undo){
 
 // 전체 기록으로 랭킹 재계산 (3게임 제한 소급 적용)
 function recalcRanking(){
+  _recalcOnly();
+  save(getState()); renderRank();
+}
+function _recalcOnly(){
   const s=getState();
   // 점수 초기화 (출석 제외)
   s.members.forEach(function(m){ m.wins=0; m.draws=0; m.losses=0; });
@@ -1038,7 +1042,7 @@ function recalcRanking(){
           function applyOne(n,type){
             var mem=s.members.find(x=>x.name===n); if(!mem) return;
             if(!perDayCount[n]) perDayCount[n]=0;
-            if(perDayCount[n]>=3) return; // 하루 3게임 초과는 미반영
+            if(perDayCount[n]>=3) return;
             perDayCount[n]++;
             if(type==='win')  mem.wins++;
             if(type==='draw') mem.draws++;
@@ -1057,7 +1061,8 @@ function recalcRanking(){
       });
     });
   });
-  save(s); renderRank();
+  // save 없이 localStorage에만 반영
+  localStorage.setItem(KEY, JSON.stringify(s));
 }
 
 // ── RENDER MATCHES
@@ -1488,17 +1493,10 @@ renderToday();
       if(d&&d.json){
         try{
           localStorage.setItem('smile_v3',d.json);
-          if(typeof recalcRanking==='function') recalcRanking();
+          if(typeof _recalcOnly==='function') _recalcOnly();
           if(typeof renderModeBanner==='function') renderModeBanner();
           if(typeof renderToday==='function') renderToday();
-          var mt=document.getElementById('members');
-          if(mt&&mt.classList.contains('active')&&typeof renderMembers==='function'){
-            // 멤버 데이터가 실제로 변경된 경우에만 재렌더
-            if(window._lastMembersJson!==d.json){
-              window._lastMembersJson=d.json;
-              renderMembers();
-            }
-          }
+          if(typeof renderRank==='function'){var rk=document.getElementById('rank');if(rk&&rk.classList.contains('active'))renderRank();}
         }catch(e){}
       }
     },function(){

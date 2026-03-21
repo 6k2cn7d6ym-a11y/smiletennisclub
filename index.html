@@ -590,21 +590,24 @@ function getEligible(div){
   const dk=todayKey();
   const day=s.history.find(h=>h.dateKey===dk);
   const leftNames=s.left.map(p=>p.name);
-  // 퇴장자 제외한 오늘 참가자
   const allInDiv=s.today.filter(p=>p.division===div&&!leftNames.includes(p.name)).map(p=>p.name);
   if(!day||!day.rounds.length) return allInDiv;
-  const prev=day.rounds[day.rounds.length-1];
-  const divData=prev.divisions.find(d=>d.division===div);
-  if(!divData) return allInDiv;
 
-  // 결과 미입력 경기에 속한 사람 → 제외
+  // 모든 라운드에서 결과 미입력 경기에 속한 사람 → 제외
   const pending=new Set();
-  divData.matches.forEach(function(m){
-    if(!m.result) m.team1.concat(m.team2).forEach(n=>pending.add(n));
+  day.rounds.forEach(function(r){
+    r.divisions.forEach(function(d){
+      if(d.division!==div&&d.division!=='F') return;
+      d.matches.forEach(function(m){
+        if(!m.result) m.team1.concat(m.team2).forEach(n=>pending.add(n));
+      });
+    });
   });
 
-  // 대기자는 pending이어도 포함 (경기 안 한 사람)
-  const waiting=new Set(divData.waiting||[]);
+  // 마지막 라운드 대기자는 포함
+  const prev=day.rounds[day.rounds.length-1];
+  const divData=prev.divisions.find(d=>d.division===div);
+  const waiting=new Set(divData?(divData.waiting||[]):[]);
 
   return allInDiv.filter(function(n){
     if(waiting.has(n)) return true;   // 대기자 우선 포함
@@ -761,6 +764,31 @@ function bestShuffle(players,pairs){
 
 // ── COURT PICKER
 // ── COURT PICKER
+// 실력별 매칭: 점수 높은 순으로 그룹화
+function buildDivRanked(players,div,maxC,newId){
+  if(players.length<4) return null;
+  var courts=Math.min(maxC,Math.floor(players.length/4));
+  var s=getState();
+  var dk=todayKey();
+  var matchPairs=getPastMatchPairs(s,dk,div);
+  // 레벨(별) 높은 순으로 정렬
+  var sorted=players.slice().sort(function(a,b){
+    var ma=s.members.find(m=>m.name===a);
+    var mb=s.members.find(m=>m.name===b);
+    var la=ma?getLvl(a):3;
+    var lb=mb?getLvl(b):3;
+    return lb-la; // 높은 레벨 먼저
+  });
+  var matches=[];
+  for(var c=0;c<courts;c++){
+    var four=sorted.slice(c*4,c*4+4);
+    if(four.length<4) break;
+    var sp=bestTeamSplit(shuffle(four),matchPairs);
+    matches.push({id:newId++,team1:sp.t1,team2:sp.t2,result:null,score1:null,score2:null});
+  }
+  return {division:div,matches:matches,waiting:sorted.slice(courts*4),courts:courts,_newId:newId};
+}
+
 function openCourtModal(){
   const s=getState();
   const dk=todayKey();
@@ -768,6 +796,17 @@ function openCourtModal(){
   const nextRound=(day?day.rounds.length:0)+1;
   var isFun=getMode()==='fun';
   var html='<div class="modal-handle"></div><div class="modal-title">'+nextRound+'라운드 코트 설정</div>';
+  // 실력별 매칭 토글
+  html+='<div onclick="toggleRankedMatch()" id="rankedMatchToggle" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;margin-bottom:10px;cursor:pointer;background:'+(window._rankedMatch?'rgba(212,98,42,0.1)':'rgba(0,0,0,0.03)')+';border:1.5px solid '+(window._rankedMatch?'var(--accent)':'var(--border)')+'">'+
+    '<div style="display:flex;align-items:center;gap:8px">'+
+      '<span style="font-size:1rem">🏅</span>'+
+      '<div><div style="font-size:0.82rem;font-weight:700;color:'+(window._rankedMatch?'var(--accent)':'var(--muted)')+'">실력별 매칭</div>'+
+      '<div style="font-size:0.68rem;color:var(--muted)">상위권↔상위권 · 하위권↔하위권</div></div>'+
+    '</div>'+
+    '<div style="width:36px;height:20px;border-radius:10px;background:'+(window._rankedMatch?'var(--accent)':'#ccc')+';position:relative;transition:background 0.2s">'+
+      '<div style="position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;transition:left 0.2s;left:'+(window._rankedMatch?'18px':'2px')+'"></div>'+
+    '</div>'+
+  '</div>';
   if(isFun){
     var allP=s.today.map(p=>p.name);
     if(day&&day.rounds.length){
@@ -826,7 +865,21 @@ function checkCourtReady(){
   var btn=document.getElementById('courtOkBtn');
   if(btn){btn.disabled=!ok;btn.style.opacity=ok?'1':'0.4'}
 }
-function confirmCourt(){var sel=window._csel||{};closeCourtModal();generateMatches(sel.A||0,sel.B||0)}
+function toggleRankedMatch(){
+  window._rankedMatch=!window._rankedMatch;
+  // 토글 UI 갱신
+  var tog=document.getElementById('rankedMatchToggle');
+  if(!tog) return;
+  tog.style.background=window._rankedMatch?'rgba(212,98,42,0.1)':'rgba(0,0,0,0.03)';
+  tog.style.border='1.5px solid '+(window._rankedMatch?'var(--accent)':'var(--border)');
+  var title=tog.querySelector('div>div>div:first-child');
+  if(title) title.style.color=window._rankedMatch?'var(--accent)':'var(--muted)';
+  var track=tog.querySelector('div:last-child');
+  if(track){track.style.background=window._rankedMatch?'var(--accent)':'#ccc';}
+  var thumb=tog.querySelector('div:last-child>div');
+  if(thumb) thumb.style.left=window._rankedMatch?'18px':'2px';
+}
+function confirmCourt(){var sel=window._csel||{};closeCourtModal();generateMatches(sel.A||0,sel.B||0);}
 function closeCourtModal(){document.getElementById('courtModal').style.display='none'}
 
 // buildDiv: 조별 매치 구성
@@ -883,18 +936,21 @@ function generateMatches(courtsA,courtsB,roundIdx){
   if(isFun){
     var players=window._funPlayers||s.today.map(p=>p.name);
     var courts=Math.min(courtsA||1,Math.floor(players.length/4));
-    var sh=shuffle(players),matches=[];
+    var useRanked=window._rankedMatch;
+    var pool=useRanked?players.slice().sort(function(a,b){return getLvl(b)-getLvl(a)}):shuffle(players);
+    var matches=[];
     for(var c=0;c<courts;c++){
-      var four=sh.slice(c*4,c*4+4);
-      var sp=bestTeamSplit(four,getPastMatchPairs(s,dk,'F'));
+      var four=pool.slice(c*4,c*4+4);
+      var sp=bestTeamSplit(useRanked?shuffle(four):four,getPastMatchPairs(s,dk,'F'));
       matches.push({id:newId++,team1:sp.t1,team2:sp.t2,result:null,score1:null,score2:null,fun:true});
     }
-    divs.push({division:'F',label:'즐겜',matches:matches,waiting:sh.slice(courts*4),courts:courts});
+    divs.push({division:'F',label:'즐겜',matches:matches,waiting:pool.slice(courts*4),courts:courts});
   } else {
     var eligA=getEligible('A'),eligB=getEligible('B');
-    var rA=buildDiv(eligA,'A',courtsA||Math.floor(eligA.length/4),newId);
+    var useRanked=window._rankedMatch;
+    var rA=useRanked?buildDivRanked(eligA,'A',courtsA||Math.floor(eligA.length/4),newId):buildDiv(eligA,'A',courtsA||Math.floor(eligA.length/4),newId);
     if(rA){newId=rA._newId;divs.push(rA);}
-    var rB=buildDiv(eligB,'B',courtsB||Math.floor(eligB.length/4),newId);
+    var rB=useRanked?buildDivRanked(eligB,'B',courtsB||Math.floor(eligB.length/4),newId):buildDiv(eligB,'B',courtsB||Math.floor(eligB.length/4),newId);
     if(rB){newId=rB._newId;divs.push(rB);}
   }
   if(!divs.length){showToast('인원이 부족합니다');return}
@@ -941,7 +997,7 @@ function regenRound(rIdx){
       d.matches.forEach(function(m){allFun=allFun.concat(m.team1,m.team2)});
       allFun=allFun.concat(d.waiting||[]);
     });
-    // 새로 도착한 사람 추가
+    // 새로 도착한 사람 추가 (진행중인 경기 없는 사람만)
     s.today.forEach(function(p){allFun.push(p.name)});
     allFun=[...new Set(allFun)].filter(function(n){
       return !leftNames.includes(n)&&!pendingElsewhere.has(n);
@@ -1489,9 +1545,27 @@ function showToast(msg){
 
   const s=getState();
   var dk=todayKey();
-  if(s.lastDate&&s.lastDate!==dk){s.today=[];s.attended=[];s.left=[];}
+
+  // 날짜가 바뀌었으면 이전 날 자동 게임 종료 처리
+  if(s.lastDate&&s.lastDate!==dk){
+    var prevDay=s.history.find(h=>h.dateKey===s.lastDate);
+    if(prevDay&&!prevDay.done){
+      prevDay.done=true;
+      // 출석 점수 일괄 부여 (게임 종료 안 눌렀어도)
+      var prevAttended=s.attended||[];
+      s.today.concat(s.left).forEach(function(p){
+        var mem=s.members.find(m=>m.name===p.name);
+        if(mem&&!prevAttended.includes(p.name)){
+          mem.attendance++;
+          prevAttended.push(p.name);
+        }
+      });
+      s.attended=prevAttended;
+      prevDay.attendCount=(s.today||[]).length+(s.left||[]).length;
+    }
+    s.today=[];s.attended=[];s.left=[];
+  }
   s.lastDate=dk;
-  // Firebase 업로드 없이 로컬에만 저장 (Firebase에서 곧 최신 데이터 받아옴)
   localStorage.setItem(KEY, JSON.stringify(s));
 })();
 recalcRanking();

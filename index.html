@@ -647,8 +647,8 @@ function setLevel(name,lv){
 }
 
 // ── LEVEL-BALANCED TEAM SPLIT
-// 4명 중 최적 팀 분할: 레벨 차 최소화 우선, 같은 팀 방지 보조
-function bestTeamSplit(four, pairs){
+// 4명 중 최적 팀 분할: 레벨 차 최소화 우선, 만난 횟수 최소화 보조
+function bestTeamSplit(four, matchPairs){
   var splits=[
     {t1:[four[0],four[1]],t2:[four[2],four[3]]},
     {t1:[four[0],four[2]],t2:[four[1],four[3]]},
@@ -656,9 +656,19 @@ function bestTeamSplit(four, pairs){
   ];
   var best=null,bestScore=Infinity;
   splits.forEach(function(sp){
-    var diff=Math.abs((getLvl(sp.t1[0])+getLvl(sp.t1[1]))-(getLvl(sp.t2[0])+getLvl(sp.t2[1])));
-    var viol=pairs?teamViolations(sp.t1,sp.t2,pairs):0;
-    var score=diff*10+viol; // 레벨 차 우선, 같은 팀 방지 보조
+    var lvDiff=Math.abs((getLvl(sp.t1[0])+getLvl(sp.t1[1]))-(getLvl(sp.t2[0])+getLvl(sp.t2[1])));
+    // 4명이 만난 총 횟수 합산
+    var meetCount=0;
+    if(matchPairs&&matchPairs.size){
+      var all=sp.t1.concat(sp.t2);
+      for(var i=0;i<all.length;i++){
+        for(var j=i+1;j<all.length;j++){
+          var k=[all[i],all[j]].sort().join('|');
+          meetCount+=(matchPairs.get(k)||0);
+        }
+      }
+    }
+    var score=lvDiff*100+meetCount; // 레벨 차 최우선, 만난 횟수 차순
     if(score<bestScore){bestScore=score;best=sp;}
   });
   return best;
@@ -700,6 +710,26 @@ function getPastTeamPairs(s,dk,div){
       var k1=[m.team1[0],m.team1[1]].sort().join('|');
       var k2=[m.team2[0],m.team2[1]].sort().join('|');
       pairs.add(k1);pairs.add(k2);
+    });
+  })});
+  return pairs;
+}
+
+// 오늘 상대편 포함 같은 경기에서 만난 쌍 목록 (모든 조합)
+function getPastMatchPairs(s,dk,div){
+  var day=s.history.find(h=>h.dateKey===dk);
+  var pairs=new Map(); // key -> 횟수
+  if(!day) return pairs;
+  day.rounds.forEach(function(r){r.divisions.forEach(function(d){
+    if(d.division!==div) return;
+    d.matches.forEach(function(m){
+      var all=m.team1.concat(m.team2);
+      for(var i=0;i<all.length;i++){
+        for(var j=i+1;j<all.length;j++){
+          var k=[all[i],all[j]].sort().join('|');
+          pairs.set(k,(pairs.get(k)||0)+1);
+        }
+      }
     });
   })});
   return pairs;
@@ -806,21 +836,20 @@ function buildDiv(players,div,maxC,newId){
   var s=getState();
   var dk=todayKey();
 
-  // 게임 수 기준 정렬 (적게 한 사람 먼저) + 동점이면 도착순서 유지 (에러4)
+  // 게임 수 기준 정렬: 0게임(한게임도 안한) 최우선, 그 다음 적게 한 순
   var withCount=players.map(function(n){return {name:n,games:countGamesPlayed(s,n,dk)}});
   withCount.sort(function(a,b){return a.games-b.games});
   var ordered=withCount.map(function(x){return x.name});
 
-  // 같은 팀 방지: 과거 팀 쌍 조회 (에러2)
-  var pastPairs=getPastTeamPairs(s,dk,div);
+  // 상대편 포함 모든 만남 쌍 조회
+  var matchPairs=getPastMatchPairs(s,dk,div);
 
   // 코트별 최적 팀 구성
   var matches=[];
   for(var c=0;c<courts;c++){
     var four=ordered.slice(c*4,c*4+4);
     if(four.length<4) break;
-    // 레벨 밸런스 우선 + 같은 팀 방지 보조
-    var sp=bestTeamSplit(shuffle(four),pastPairs);
+    var sp=bestTeamSplit(shuffle(four),matchPairs);
     matches.push({id:newId++,team1:sp.t1,team2:sp.t2,result:null,score1:null,score2:null});
   }
   return {division:div,matches:matches,waiting:ordered.slice(courts*4),courts:courts,_newId:newId};
@@ -857,7 +886,7 @@ function generateMatches(courtsA,courtsB,roundIdx){
     var sh=shuffle(players),matches=[];
     for(var c=0;c<courts;c++){
       var four=sh.slice(c*4,c*4+4);
-      var sp=bestTeamSplit(four,null);
+      var sp=bestTeamSplit(four,getPastMatchPairs(s,dk,'F'));
       matches.push({id:newId++,team1:sp.t1,team2:sp.t2,result:null,score1:null,score2:null,fun:true});
     }
     divs.push({division:'F',label:'즐겜',matches:matches,waiting:sh.slice(courts*4),courts:courts});
@@ -906,32 +935,40 @@ function regenRound(rIdx){
 
   var divs=[];
   if(round.mode==='fun'){
-    // 즐겜: 현재 라운드 인원에서 left/진행중 제외 후 게임수 정렬
+    // 즐겜: 현재 라운드 인원 + 새로 도착한 사람 모두 포함, left/진행중 제외
     var allFun=[];
     round.divisions.forEach(function(d){
       d.matches.forEach(function(m){allFun=allFun.concat(m.team1,m.team2)});
       allFun=allFun.concat(d.waiting||[]);
     });
+    // 새로 도착한 사람 추가
+    s.today.forEach(function(p){allFun.push(p.name)});
     allFun=[...new Set(allFun)].filter(function(n){
       return !leftNames.includes(n)&&!pendingElsewhere.has(n);
     });
-    allFun.sort(function(a,b){return countGamesPlayed(s,a,dk)-countGamesPlayed(s,b,dk)});
-    var pastPairs=getPastTeamPairs(s,dk,'F');
+    // 0게임(한 게임도 안 한 사람) 최우선, 그 다음 게임 수 적은 순
+    allFun.sort(function(a,b){
+      var ga=countGamesPlayed(s,a,dk),gb=countGamesPlayed(s,b,dk);
+      return ga-gb;
+    });
+    var matchPairs=getPastMatchPairs(s,dk,'F');
     var courts=round.divisions[0].courts;
     var matches=[];
     for(var c=0;c<courts;c++){
       var four=allFun.slice(c*4,c*4+4);
       if(four.length<4) break;
-      var best=bestTeamSplit(shuffle(four),pastPairs);
+      var best=bestTeamSplit(shuffle(four),matchPairs);
       matches.push({id:newId++,team1:best.t1,team2:best.t2,result:null,score1:null,score2:null,fun:true});
     }
     divs.push({division:'F',label:'즐겜',matches:matches,waiting:allFun.slice(courts*4),courts:courts});
   } else {
-    // 랭킹: 조별로 left/진행중 제외 후 buildDiv 로직
+    // 랭킹: 조별로 현재 라운드 인원 + 새 도착자 포함, left/진행중 제외
     round.divisions.forEach(function(div){
       var players=[];
       div.matches.forEach(function(m){players=players.concat(m.team1,m.team2)});
       players=players.concat(div.waiting||[]);
+      // 새로 도착한 같은 조 사람 추가
+      s.today.forEach(function(p){if(p.division===div.division)players.push(p.name)});
       players=[...new Set(players)].filter(function(n){
         return !leftNames.includes(n)&&!pendingElsewhere.has(n);
       });
@@ -979,9 +1016,9 @@ function submitScore(dk,rIdx,dIdx,matchId){
   if(!day) return;
   var match=day.rounds[rIdx].divisions[dIdx].matches.find(m=>m.id===matchId);
   if(!match) return;
-  if(match.result) applyResult(s,match,match.result,true);
+  if(match.result) applyResult(s,match,match.result,true); // undo 기존결과
   match.result=result;match.score1=s1;match.score2=s2;
-  applyResult(s,match,result,false);
+  // 랭킹 점수는 게임 종료 시 일괄 반영 (applyResult 미호출)
   saveAndSync(s);renderMatchArea();showToast('결과 저장!');
 }
 function clearScore(dk,rIdx,dIdx,matchId){
@@ -990,7 +1027,6 @@ function clearScore(dk,rIdx,dIdx,matchId){
   if(!day) return;
   var match=day.rounds[rIdx].divisions[dIdx].matches.find(m=>m.id===matchId);
   if(!match||!match.result) return;
-  if(match.result!=='forfeit') applyResult(s,match,match.result,true);
   match.result=null;match.score1=null;match.score2=null;match.forfeit=null;
   saveAndSync(s);renderMatchArea();showToast('결과 취소됨');
 }
@@ -1307,7 +1343,7 @@ function endDay(){
   showConfirm('🏁 오늘 게임 종료',day.rounds.length+'라운드 / '+done+'/'+total+'경기 완료. 종료하시겠어요?','종료',function(){
     day.done=true;
     day.attendCount=s.today.length+s.left.length;
-    // 에러3: 출석점수 종료 시 일괄 부여 (today + left 모두)
+    // 출석 점수 일괄 부여
     s.today.concat(s.left).forEach(function(p){
       var mem=s.members.find(m=>m.name===p.name);
       if(mem&&!s.attended.includes(p.name)){
@@ -1315,7 +1351,12 @@ function endDay(){
         s.attended.push(p.name);
       }
     });
-    save(s);renderMatchArea();renderRank();showToast('오늘 게임 종료!');
+    // 3. 도착 순서 리셋
+    s.today=[];s.left=[];
+    // 4. 랭킹 점수 일괄 반영 (recalcRanking이 history 기반으로 전체 재계산)
+    save(s);
+    recalcRanking();
+    renderMatchArea();renderRank();showToast('오늘 게임 종료!');
   });
 }
 function reopenDay(){
@@ -1380,16 +1421,18 @@ function forcSync(){
 // ── RESET
 function resetHistory(){
   showConfirm(
-    '경기 기록 초기화',
-    '경기 기록을 모두 삭제할까요? 회원 정보와 점수는 유지됩니다.',
+    '오늘 경기 기록 초기화',
+    '오늘 경기 기록만 삭제할까요? 회원 정보와 점수는 유지됩니다.',
     '초기화',
     function(){
       const s=getState();
-      s.history=[];s.today=[];s.attended=[];s.modeOverride=undefined;s.modeDate=undefined;s.lastDate=undefined;
+      var dk=todayKey();
+      s.history=s.history.filter(h=>h.dateKey!==dk);
+      s.today=[];s.attended=[];s.left=[];s.modeOverride=undefined;s.modeDate=undefined;
       save(s);
       renderModeBanner();
       renderToday();
-      showToast('경기 기록 초기화 완료');
+      showToast('오늘 경기 기록 초기화 완료');
     }
   );
 }
@@ -1482,29 +1525,40 @@ renderToday();
     var db=firebase.firestore();
     var REF=db.collection('smile').doc('data');
     var skip=false;
+    var lastJson=null;
 
     REF.onSnapshot(function(snap){
-      // 문서 존재 여부와 관계없이 연결됨 표시
       var el=document.getElementById('syncStatus');
       if(el){el.textContent='🟢 실시간 연결됨';el.style.color='#5a8a5a';}
       if(!snap.exists) return;
+      // 내가 저장한 데이터면 무시 (skip 플래그)
       if(skip){skip=false;return;}
       var d=snap.data();
-      if(d&&d.json){
-        try{
-          localStorage.setItem('smile_v3',d.json);
-          if(typeof _recalcOnly==='function') _recalcOnly();
+      if(!d||!d.json) return;
+      // 동일 데이터면 무시
+      if(d.json===lastJson) return;
+      lastJson=d.json;
+      // 다른 기기에서 온 변경만 렌더
+      try{
+        localStorage.setItem('smile_v3',d.json);
+        if(typeof _recalcOnly==='function') _recalcOnly();
+        var activeTab=document.querySelector('.section.active');
+        var activeId=activeTab?activeTab.id:'';
+        if(activeId==='today'){
           if(typeof renderModeBanner==='function') renderModeBanner();
           if(typeof renderToday==='function') renderToday();
-          if(typeof renderRank==='function'){var rk=document.getElementById('rank');if(rk&&rk.classList.contains('active'))renderRank();}
-        }catch(e){}
-      }
+        } else if(activeId==='rank'){
+          if(typeof renderRank==='function') renderRank();
+        }
+      }catch(e){}
     },function(){
       var el=document.getElementById('syncStatus');
       if(el){el.textContent='🔴 연결 실패';el.style.color='#c0392b';}
     });
 
     window.fbSave=function(json){
+      if(json===lastJson) return;
+      lastJson=json;
       skip=true;
       REF.set({json:json,updatedAt:Date.now()}).catch(function(){skip=false;});
     };

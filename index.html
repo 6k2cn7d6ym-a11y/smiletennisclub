@@ -1411,6 +1411,34 @@ function renderMatchArea(){
   // ── 진행중: 라운드 표시
   if(!day||!day.rounds.length){
     html+='<div class="empty-state"><div class="e-icon">🎾</div><div class="e-text">참가자를 입력하고 매칭을 생성하세요</div></div>';
+    // 과거 기록 표시
+    var pastH=s.history.filter(function(h){return h.dateKey!==dk}).slice().reverse();
+    if(pastH.length){
+      html+='<div style="margin-top:20px"><div class="group-label" style="margin-bottom:10px">📅 날짜별 기록</div>';
+      pastH.forEach(function(d){
+        var attendCount=d.attendCount||(function(){
+          var ps=new Set();
+          d.rounds.forEach(function(r){r.divisions.forEach(function(dv){dv.matches.forEach(function(m){m.team1.concat(m.team2).forEach(function(n){ps.add(n)});});(dv.waiting||[]).forEach(function(n){ps.add(n)});});});
+          return ps.size;
+        })();
+        var modeLabel=d.rounds.length>0&&d.rounds[0].mode==='fun'?'🎮 즐겜':'🏆 랭킹';
+        html+=
+          '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow)">'+
+          '<div onclick="toggleDayDetail(\'detail_'+d.dateKey+'\')" style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;cursor:pointer">'+
+            '<span style="font-size:0.9rem;font-weight:700">'+d.date+'</span>'+
+            '<div style="display:flex;align-items:center;gap:10px">'+
+              '<span style="font-size:0.72rem;color:var(--muted)">'+modeLabel+'</span>'+
+              '<span style="font-size:0.72rem;font-weight:600;color:var(--accent)">👤 '+attendCount+'명</span>'+
+              '<span style="font-size:0.72rem;font-weight:600;color:var(--muted)">'+d.rounds.length+'라운드</span>'+
+              '<span style="font-size:0.75rem;color:var(--muted)">▾</span>'+
+            '</div>'+
+          '</div>'+
+          '<div id="detail_'+d.dateKey+'" style="display:none;border-top:1px solid var(--sep);padding:12px 14px">'+
+            renderDayDetail(d)+
+          '</div></div>';
+      });
+      html+='</div>';
+    }
     document.getElementById('matchesArea').innerHTML=html;return;
   }
   day.rounds.forEach(function(round,rIdx){
@@ -1503,6 +1531,37 @@ function renderMatchArea(){
     });
     if(rIdx<day.rounds.length-1) html+='<div style="height:1px;background:var(--sep);margin:14px 0 16px"></div>';
   });
+
+  // ── 과거 날짜 기록 (오늘 진행 중에도 표시)
+  var pastHistory=s.history.filter(function(h){return h.dateKey!==dk}).slice().reverse();
+  if(pastHistory.length){
+    html+='<div style="margin-top:20px"><div class="group-label" style="margin-bottom:10px">📅 날짜별 기록</div>';
+    pastHistory.forEach(function(d){
+      var attendCount=d.attendCount||(function(){
+        var ps=new Set();
+        d.rounds.forEach(function(r){r.divisions.forEach(function(dv){dv.matches.forEach(function(m){m.team1.concat(m.team2).forEach(function(n){ps.add(n)});});(dv.waiting||[]).forEach(function(n){ps.add(n)});});});
+        return ps.size;
+      })();
+      var modeLabel=d.rounds.length>0&&d.rounds[0].mode==='fun'?'🎮 즐겜':'🏆 랭킹';
+      html+=
+        '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow)">'+
+        '<div onclick="toggleDayDetail(\'detail_'+d.dateKey+'\')" style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;cursor:pointer">'+
+          '<span style="font-size:0.9rem;font-weight:700">'+d.date+'</span>'+
+          '<div style="display:flex;align-items:center;gap:10px">'+
+            '<span style="font-size:0.72rem;color:var(--muted)">'+modeLabel+'</span>'+
+            '<span style="font-size:0.72rem;font-weight:600;color:var(--accent)">👤 '+attendCount+'명</span>'+
+            '<span style="font-size:0.72rem;font-weight:600;color:var(--muted)">'+d.rounds.length+'라운드</span>'+
+            '<span style="font-size:0.75rem;color:var(--muted)">▾</span>'+
+          '</div>'+
+        '</div>'+
+        '<div id="detail_'+d.dateKey+'" style="display:none;border-top:1px solid var(--sep);padding:12px 14px">'+
+          renderDayDetail(d)+
+        '</div>'+
+        '</div>';
+    });
+    html+='</div>';
+  }
+
   document.getElementById('matchesArea').innerHTML=html;
 }
 
